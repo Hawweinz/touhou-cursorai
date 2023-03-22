@@ -1,6 +1,8 @@
 # touhou-cursorai ~ algorithmic spellcasters' banquet
 
+<div align=center>
 <img src="./screenshot/screenshot.png" alt="1" width="200px" />
+</div>
 
 **(该部分由Bing AI参与创作 | Written with Bing AI)**
 
