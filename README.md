@@ -3,6 +3,7 @@
 <div align=center>
 <img src="./screenshot/screenshot.png" alt="1" width="200px" />
 </div>
+
 **(Written with Bing AI | 该部分由Bing AI参与创作)**
 
 > 灵梦从CursorBot那里抢来了一封“算法法师宴会”的邀请函——这是个著名的活动，法师们能用算法赢取奖金。这个宴会吸引了不少赛博召唤物参与。可是灵梦并不关心什么是算法，她只要奖金——显然，比起算法，她有直接的获奖方式。她想出了一个简单的计划：从物理上击败所有赛博召唤物，轻松获得奖品。
