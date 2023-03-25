@@ -10,7 +10,7 @@
 
 > Reimu seized an invitation from CursorBot to attend the “Algorithmic Spellcasters’ Banquet,” a prestigious event where spellcasters compete for a prize using algorithmic magic. Many AI bots were eager to participate. Reimu was interested in the prize but had no idea what “algorithms” meant - obviously, she preferred more straightforward methods over algorithms. So she came up with a simple plan: literally defeat all the AI competitors and easily claim the prize.
 
-**注意: ** 大部分代码是由[Cursor](https://github.com/getcursor/cursor)编辑器完成。名字也是AI起的。
+**注意:** 大部分代码是由[Cursor](https://github.com/getcursor/cursor)编辑器完成。名字也是AI起的。
 
 **NOTE:** Mostly written by the [Cursor](https://github.com/getcursor/cursor) AI editor(including the game name).
 
