@@ -20,19 +20,57 @@ BOMB_EXPLODE_COLOR = "cyan"
 PLAYER_HP = 5
 INIT_BOMBS = 3
 BOMB_RADIUS = 200
-PLAYER_SPEED_NORMAL = 6
-PLAYER_SPEED_SLOW = 3
-PLAYER_SHOOT_COOLDOWN = 5
-PLAYER_HIT_COOLDOWN = 20
+BOMB_DURATION = 100
+PLAYER_RADIUS_NORMAL = 5
+PLAYER_RADIUS_SLOW = 2.5
+PLAYER_SPEED_NORMAL = 12
+PLAYER_SPEED_SLOW = 6
+PLAYER_SHOOT_COOLDOWN = 2
+PLAYER_DAMAGE_COOLDOWN = 20
 # enemy configs
 DIFFICULTY = 1 # 0: easy, 1: normal, 2: hard, 3: lunatic
 DIFFICULTY_TEXT = ["Easy", "Normal", "Hard", "Lunatic"]
+ENEMY_HP = 4
+ENEMY_RADIUS = 7.5
 ENEMY_COOLDOWN_SHORT = [10, 5, 2, 1] # [easy, normal, hard, lunatic]
 ENEMY_COOLDOWN_LONG = [20, 16, 12, 8]
 MAX_ENEMY_COUNT = [5, 8, 12, 16]
+ENEMY_SUMMON_RATE = 0.05 # do not touch
+# BULLETS
+PLAYER_BULLET_SPEED = 15
+ENEMY_BULLET_SPEED = 2
+
+PLAYER_BULLET_RADIUS_X = 2
+PLAYER_BULLET_RADIUS_Y = 4
+ENEMY_BULLET_RADIUS = 2.5
+
 # ITEM DROP CHANCE
 ITEM_DROP_CHANCE = 0.05
 ITEM_SPEED = 1.5
+ITEM_RADIUS_X = 10 
+ITEM_RADIUS_Y = 12.5
+# SCENE
+SCENE_SPEED = 1
+FPS = 30
+FRAME_INTERVAL = int(1000 / FPS)
+
+
+# Normalize speed according to FPS
+scalar = 20 / FPS
+SCENE_SPEED *= scalar
+ITEM_SPEED *= scalar
+PLAYER_SPEED_NORMAL *= scalar
+PLAYER_SPEED_SLOW *= scalar
+PLAYER_SHOOT_COOLDOWN = int(PLAYER_SHOOT_COOLDOWN / scalar)
+PLAYER_DAMAGE_COOLDOWN = int(PLAYER_DAMAGE_COOLDOWN / scalar)
+PLAYER_BULLET_SPEED *= scalar
+BOMB_DURATION = int(BOMB_DURATION / scalar)
+ENEMY_BULLET_SPEED *= scalar
+for cooldown in ENEMY_COOLDOWN_SHORT:
+    cooldown = int(cooldown / scalar)
+for cooldown in ENEMY_COOLDOWN_LONG:
+    cooldown = int(cooldown / scalar)
+ENEMY_SUMMON_RATE = 1 - (ENEMY_SUMMON_RATE) * scalar
 
 class Player:
     def __init__(self, canvas, x, y):
@@ -41,11 +79,11 @@ class Player:
         self.y = y
         self.hp = PLAYER_HP
         self.bomb = INIT_BOMBS
-        self.shape = canvas.create_rectangle(x, y, x + 10, y + 10, fill=PLAYER_COLOR)
+        self.shape = canvas.create_rectangle(x - PLAYER_RADIUS_NORMAL, y - PLAYER_RADIUS_NORMAL, x + PLAYER_RADIUS_NORMAL, y + PLAYER_RADIUS_NORMAL, fill=PLAYER_COLOR)
         self.speed = PLAYER_SPEED_NORMAL
         self.score = 0
         self.shoot_cooldown = PLAYER_SHOOT_COOLDOWN
-        self.hit_cooldown = PLAYER_HIT_COOLDOWN
+        self.hit_cooldown = PLAYER_DAMAGE_COOLDOWN
         self.hit_cooldown_counter = 0
         self.shoot_cooldown_counter = 0
 
@@ -57,12 +95,19 @@ class Player:
         self.canvas.move(self.shape, dx, dy)
 
     def shoot_bullet(self):
-        return Bullet(self.canvas, self.x, self.y, 0, -5, 0)
+        return Bullet(self.canvas, self.x, self.y, 0, -PLAYER_BULLET_SPEED, 0)
+
+
+    def explode_bomb(self):
+        if self.bomb > 0:
+            self.bomb -= 1
+            return BombExplosion(self)
+        
 
     def apply_damage(self):
         if self.hit_cooldown_counter <= 0:
             self.hp -= 1
-            self.hit_cooldown_counter = PLAYER_HIT_COOLDOWN
+            self.hit_cooldown_counter = PLAYER_DAMAGE_COOLDOWN
             self.canvas.itemconfig(self.shape, fill=PLAYER_COLOR_HIT)
 
 class Enemy:
@@ -70,17 +115,17 @@ class Enemy:
         self.canvas = canvas
         self.x = x
         self.y = y
-        self.hp = 2
-        self.speed = 2
-        self.shape = canvas.create_rectangle(x, y, x + 15, y + 15, fill=ENEMY_COLOR)
+        self.hp = ENEMY_HP
+        self.bullet_speed = ENEMY_BULLET_SPEED
+        self.shape = canvas.create_rectangle(x - ENEMY_RADIUS, y - ENEMY_RADIUS, x + ENEMY_RADIUS, y + ENEMY_RADIUS, fill=ENEMY_COLOR)
         self.cooldown = cooldown
         self.cooldown_counter = 0
 
     def shoot_bullet(self, direction=None):
         if direction is None:
             direction = random.uniform(-1, 1)
-        dx = self.speed * math.sin(direction * math.pi)
-        dy = self.speed * math.cos(direction * math.pi)  # Vertically downward
+        dx = self.bullet_speed * math.sin(direction * math.pi)
+        dy = self.bullet_speed * math.cos(direction * math.pi)  # Vertically downward
         bullet = Bullet(self.canvas, self.x, self.y, dx, dy, 1)
         return bullet
     # Add move method to the Enemy class
@@ -109,21 +154,25 @@ class Bullet:
         self.dx = dx
         self.dy = dy
         if from_ == 0:
-            self.shape = canvas.create_rectangle(x + 3, y, x + 7, y + 10, fill=PLAYER_BULLET_COLOR)
+            self.shape = canvas.create_rectangle(x - PLAYER_BULLET_RADIUS_X, y - PLAYER_BULLET_RADIUS_Y,
+                                                 x + PLAYER_BULLET_RADIUS_X, y + PLAYER_BULLET_RADIUS_Y, fill=PLAYER_BULLET_COLOR)
         else:
-            self.shape = canvas.create_polygon(x, y + 2.5, x + 2.5, y, x + 5, y + 2.5, x + 2.5, y + 5, fill=ENEMY_BULLET_COLOR)
+            self.shape = canvas.create_polygon(x - ENEMY_BULLET_RADIUS, y, x, y - ENEMY_BULLET_RADIUS,
+                                               x + ENEMY_BULLET_RADIUS, y, x, y + ENEMY_BULLET_RADIUS, fill=ENEMY_BULLET_COLOR)
         self.from_ = from_ # 0 for player and 1 for enemy
 
     def move(self, dx=0, dy=0):
-        self.x += self.dx + dx
-        self.y += self.dy + dy
-        self.canvas.move(self.shape, self.dx, self.dy)
+        dx += self.dx
+        dy += self.dy
+        self.x += dx
+        self.y += dy
+        self.canvas.move(self.shape, dx, dy)
 
 class Item:
     def __init__(self, canvas, x, y):
         self.canvas = canvas
         self.x = x
-        self.y = y
+        self.y = y + ITEM_RADIUS_Y / 2
         self.speed = ITEM_SPEED
         # self.shape = canvas.create_rectangle(x, y, x + 10, y + 10, fill="white")
 
@@ -137,25 +186,26 @@ class Item:
 class LifeItem(Item):
     def __init__(self, canvas, x, y):
         super().__init__(canvas, x, y)
-        self.shape = canvas.create_rectangle(x, y + 5, x + 20, y + 30, fill=LIFE_ITEM_COLOR)
+        self.shape = canvas.create_rectangle(x - ITEM_RADIUS_X, y - ITEM_RADIUS_Y, x + ITEM_RADIUS_X, y + ITEM_RADIUS_Y, fill=LIFE_ITEM_COLOR)
     def pickup(self, player):
         player.hp += 1
 
 class BombItem(Item):
     def __init__(self, canvas, x, y):
         super().__init__(canvas, x, y)
-        self.shape = canvas.create_rectangle(x, y + 5, x + 20, y + 30, fill=BOMB_ITEM_COLOR)
+        self.shape = canvas.create_rectangle(x - ITEM_RADIUS_X, y - ITEM_RADIUS_Y, x + ITEM_RADIUS_X, y + ITEM_RADIUS_Y, fill=BOMB_ITEM_COLOR)
     def pickup(self, player):
         player.bomb += 1
 
 class BombExplosion:
-    def __init__(self, canvas, x, y):
-        self.canvas = canvas
-        self.x = x
-        self.y = y
+    def __init__(self, player):
+        self.canvas = player.canvas
+        self.x = player.x
+        self.y = player.y
+        self.player = player
         self.radius = BOMB_RADIUS
-        self.shape = canvas.create_oval(x - self.radius, y - self.radius, x + self.radius, y + self.radius, outline=BOMB_EXPLODE_COLOR, width=3)
-        self.time_to_vanish = 10
+        self.shape = self.canvas.create_oval(self.x - self.radius, self.y - self.radius, self.x + self.radius, self.y + self.radius, outline=BOMB_EXPLODE_COLOR, width=3)
+        self.time_to_vanish = BOMB_DURATION
 
     def update(self):
         if self.time_to_vanish <= 0:
@@ -163,12 +213,22 @@ class BombExplosion:
             return
         self.time_to_vanish -= 1
 
+        dx = self.player.x - self.x
+        dy = self.player.y - self.y
+        distance = max(abs(dx), abs(dy))
+        dx = dx * distance * 1e-3
+        dy = dy * distance * 1e-3
+        
+        self.x += dx
+        self.y += dy
+        self.canvas.move(self.shape, dx, dy)
+
 
 class GameScene:
     def __init__(self, master):
         self.master = master
         self.canvas = tk.Canvas(master, width=WIDTH, height=HEIGHT)
-        self.canvas.pack()
+        self.canvas.pack(side="left")
         self.canvas.configure(bg=BACKGROUND_COLOR)
         self.player = Player(self.canvas, WIDTH / 2, HEIGHT / 2)
         self.enemies = [Enemy(self.canvas, random.randint(0, WIDTH - 10), random.randint(0, HEIGHT // 3 - 10), ENEMY_COOLDOWN_LONG[DIFFICULTY]) for _ in range(2)]
@@ -182,11 +242,14 @@ class GameScene:
         self.game_over = False
         self.pause = False
 
-        # Display player's score and HP at the bottom-left corner of the game
-        self.score_text = self.canvas.create_text(5, 7, text=f"Score: {self.player.score:09d}", anchor="w", fill="white")
-        self.hp_text = self.canvas.create_text(5, 22, text="Player: " + self.player.hp * "♥ ", anchor="w", fill="red")
-        self.bomb_text = self.canvas.create_text(5, 37, text="Bombs: " + self.player.bomb * "★ ", anchor="w", fill="light blue")
-        self.difficulty_text = self.canvas.create_text(WIDTH - 5, 5, text=f"Difficulty: {DIFFICULTY_TEXT[DIFFICULTY]}", anchor="ne", fill="white")
+        # ui panel
+        self.ui_panel = tk.Canvas(master, width=WIDTH/2, height=HEIGHT)
+        self.ui_panel.pack(side="right")
+        self.ui_panel.configure(bg=BACKGROUND_COLOR)
+        self.difficulty_text = self.ui_panel.create_text(20, 30, text=f"Difficulty: {DIFFICULTY_TEXT[DIFFICULTY]}", anchor="w", fill="white", font=("Arial", 12))
+        self.score_text = self.ui_panel.create_text(20, 60, text=f"Score: {self.player.score:09d}", anchor="w", fill="white", font=("Arial", 12))
+        self.hp_text = self.ui_panel.create_text(20, 120, text="Player: " + self.player.hp * "♥ ", anchor="w", fill="red", font=("Arial", 12))
+        self.bomb_text = self.ui_panel.create_text(20, 150, text="Bomb: " + self.player.bomb * "★ ", anchor="w", fill="light blue", font=("Arial", 12))
         
         self.run_game()
 
@@ -224,7 +287,7 @@ class GameScene:
                 self.items.append(bomb)
     
     def generate_enemy(self):
-        if len(self.enemies) >= MAX_ENEMY_COUNT[DIFFICULTY] or random.random() < 0.9:
+        if len(self.enemies) >= MAX_ENEMY_COUNT[DIFFICULTY] or random.random() < ENEMY_SUMMON_RATE:
             return
         enemy_type = random.random()
         x = random.randint(0, WIDTH - 10)
@@ -257,7 +320,7 @@ class GameScene:
                 if enemy.hp <= 0:
                     self.canvas.delete(enemy.shape)
                     self.enemies.remove(enemy)
-                    self.player.score += 100
+                    self.score_up(100)
                     self.generate_item(enemy.x, enemy.y)
                 self.canvas.delete(bullet.shape)
                 self.bullets.remove(bullet)
@@ -267,6 +330,7 @@ class GameScene:
     def handle_enemy_bullet_collision(self, bullet):
         if self.check_collision(bullet, self.player):
             self.player.apply_damage()
+            self.ui_panel.itemconfig(self.hp_text, text="Player: " + self.player.hp * "♥ ")
             self.canvas.delete(bullet.shape)
             self.bullets.remove(bullet)
 
@@ -283,6 +347,7 @@ class GameScene:
             if self.check_collision(enemy, self.player):
                 # self.canvas.itemconfig(self.player.shape, fill=PLAYER_COLOR_HIT)
                 self.player.apply_damage()
+                self.ui_panel.itemconfig(self.hp_text, text="Player: " + self.player.hp * "♥ ")
                 break
 
     def check_bomb_explosion_collision(self):
@@ -291,7 +356,7 @@ class GameScene:
                 if math.sqrt((bomb_explosion.x - enemy.x)**2 + (bomb_explosion.y - enemy.y)**2) <= BOMB_RADIUS:
                     self.canvas.delete(enemy.shape)
                     self.enemies.remove(enemy)
-                    self.player.score += 100
+                    self.score_up(100)
             for bullet in self.bullets:
                 if bullet.from_ == 1 and math.sqrt((bomb_explosion.x - bullet.x)**2 + (bomb_explosion.y - bullet.y)**2) <= BOMB_RADIUS:
                     self.canvas.delete(bullet.shape)
@@ -306,29 +371,27 @@ class GameScene:
                 self.bomb_explosions.remove(bomb_explosion)
 
     
-    def explode_bomb(self, x, y):
-        self.bomb_explosions.append(BombExplosion(self.canvas, x, y))
-
-    
     def handle_bomb(self):
         if self.allow_new_explosion:
             if "X" in self.keys and self.player.bomb > 0:
                 self.allow_new_explosion = False
-                self.player.bomb -= 1
-                self.explode_bomb(self.player.x, self.player.y)
+                self.bomb_explosions.append(self.player.explode_bomb())
+                self.ui_panel.itemconfig(self.bomb_text, text="Bomb: " + self.player.bomb * "★ ")
         else:
             self.allow_new_explosion =  ("X" not in self.keys)
 
     
     def handle_player_movement(self):
+        dx, dy = 0, 0
         if "LEFT" in self.keys and self.player.x > 0:
-            self.player.move(-1, 0)
+            dx -= 1
         if "RIGHT" in self.keys and self.player.x < WIDTH:
-            self.player.move(1, 0)
+            dx += 1
         if "UP" in self.keys and self.player.y > 0:
-            self.player.move(0, -1)
+            dy -= 1
         if "DOWN" in self.keys and self.player.y < HEIGHT:
-            self.player.move(0, 1)
+            dy += 1
+        self.player.move(dx, dy)
 
     def handle_difficulty_change(self):
         global DIFFICULTY
@@ -340,22 +403,25 @@ class GameScene:
             DIFFICULTY = 2
         if "4" in self.keys:
             DIFFICULTY = 3
+        self.ui_panel.itemconfig(self.difficulty_text, text=f"Difficulty: {DIFFICULTY_TEXT[DIFFICULTY]}")
 
     def handle_player_shooting(self):
         if "SHIFT_L" in self.keys:
             self.canvas.delete(self.player.shape)
-            self.player.shape = self.canvas.create_rectangle(self.player.x + 2, self.player.y + 2, self.player.x + 9, self.player.y + 9, fill=PLAYER_COLOR)
+            self.player.shape = self.canvas.create_rectangle(self.player.x - PLAYER_RADIUS_SLOW, self.player.y - PLAYER_RADIUS_SLOW,
+                                                             self.player.x + PLAYER_RADIUS_SLOW, self.player.y + PLAYER_RADIUS_SLOW, fill=PLAYER_COLOR)
             self.player.speed = PLAYER_SPEED_SLOW
         else:
             self.canvas.delete(self.player.shape)
-            self.player.shape = self.canvas.create_rectangle(self.player.x, self.player.y, self.player.x + 10, self.player.y + 10, fill=PLAYER_COLOR)
+            self.player.shape = self.canvas.create_rectangle(self.player.x - PLAYER_RADIUS_NORMAL, self.player.y - PLAYER_RADIUS_NORMAL,
+                                                             self.player.x + PLAYER_RADIUS_NORMAL, self.player.y + PLAYER_RADIUS_NORMAL, fill=PLAYER_COLOR)
             self.player.speed = PLAYER_SPEED_NORMAL
         
         if "Z" in self.keys and self.player.shoot_cooldown_counter <= 0:
             self.bullets.append(self.player.shoot_bullet())
             self.player.shoot_cooldown_counter = self.player.shoot_cooldown
 
-    def handle_player_hit_cooldown(self):
+    def handle_PLAYER_DAMAGE_COOLDOWN(self):
         if self.player.shoot_cooldown_counter > 0:
             self.player.shoot_cooldown_counter -= 1
 
@@ -365,16 +431,15 @@ class GameScene:
 
     def move_bullets(self):
         for bullet in self.bullets:
-            bullet.move(0, 1)
-            if bullet.y < 0 or bullet.y > 1.5 * HEIGHT:
+            bullet.move(0, SCENE_SPEED)
+            if bullet.y < 0 or bullet.y > HEIGHT:
                 self.canvas.delete(bullet.shape)
                 self.bullets.remove(bullet)
-
     
 
     def move_enemies(self):
         for enemy in self.enemies:
-            enemy.move(0, 1)
+            enemy.move(0, SCENE_SPEED)
             if enemy.y > HEIGHT:
                 self.canvas.delete(enemy.shape)
                 self.enemies.remove(enemy)
@@ -384,17 +449,17 @@ class GameScene:
             item_.move()
             if self.check_collision(item_, self.player):
                 item_.pickup(self.player)
+                self.ui_panel.itemconfig(self.hp_text, text="Player: " + self.player.hp * "♥ ")
+                self.ui_panel.itemconfig(self.bomb_text, text="Bomb: " + self.player.bomb * "★ ")
                 self.canvas.delete(item_.shape)
                 self.items.remove(item_)
             elif item_.y > HEIGHT:
                 self.canvas.delete(item_.shape)
                 self.items.remove(item_)
 
-    def update_ui(self):
-        self.canvas.itemconfig(self.score_text, text=f"Score: {self.player.score:09d}")
-        self.canvas.itemconfig(self.hp_text, text="Player: " + self.player.hp * "♥ ",)
-        self.canvas.itemconfig(self.bomb_text, text="Bombs: " + self.player.bomb * "★ ")
-        self.canvas.itemconfig(self.difficulty_text, text=f"Difficulty: {DIFFICULTY_TEXT[DIFFICULTY]}")
+    def score_up(self, points):
+        self.player.score += points
+        self.ui_panel.itemconfig(self.score_text, text=f"Score: {self.player.score:09d}")
     
     def run_game(self):
         self.update()
@@ -412,6 +477,8 @@ class GameScene:
     def restart_game(self, event):
         self.canvas.delete("all")
         self.canvas.pack_forget()  # Add this line to remove the old canvas
+        self.ui_panel.delete("all")
+        self.ui_panel.pack_forget()
         self.__init__(self.master)
 
     
@@ -419,10 +486,10 @@ class GameScene:
         global DIFFICULTY
         
         if not self.pause:
-            self.handle_player_movement()
             self.handle_difficulty_change()
             self.handle_player_shooting()
-            self.handle_player_hit_cooldown()
+            self.handle_PLAYER_DAMAGE_COOLDOWN()
+            self.handle_player_movement()
             self.handle_enemy_shooting()
             self.generate_enemy()
             self.move_bullets()
@@ -434,13 +501,14 @@ class GameScene:
             self.move_and_pickup_items()
             self.handle_bomb()
             self.check_game_over()
-            self.update_ui()
 
         if not self.game_over:
-            self.master.after(50, self.update)
+            self.master.after(FRAME_INTERVAL, self.update)
 
         
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Touhou Cursorai ~ Algorithmic Spellcasters' Banquet")
     game = GameScene(root)
+
+
